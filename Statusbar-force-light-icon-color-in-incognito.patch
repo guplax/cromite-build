@@ -1,0 +1,21 @@
+From: Guplax <guplax@users.noreply.github.com>
+Date: Thu, 19 Mar 2026 13:08:50 +0000
+Subject: Statusbar force light icon color in incognito
+
+---
+ .../chrome/browser/ui/system/StatusBarColorController.java      | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/chrome/android/java/src/org/chromium/chrome/browser/ui/system/StatusBarColorController.java b/chrome/android/java/src/org/chromium/chrome/browser/ui/system/StatusBarColorController.java
+--- a/chrome/android/java/src/org/chromium/chrome/browser/ui/system/StatusBarColorController.java
++++ b/chrome/android/java/src/org/chromium/chrome/browser/ui/system/StatusBarColorController.java
+@@ -610,7 +610,7 @@ public class StatusBarColorController
+             boolean forceLightIconColor) {
+         Window window = activity.getWindow();
+         final View root = window.getDecorView().getRootView();
+-        boolean needsDarkStatusBarIcons = !ColorUtils.shouldUseLightForegroundOnBackground(color);
++        boolean needsDarkStatusBarIcons = !forceLightIconColor && !ColorUtils.shouldUseLightForegroundOnBackground(color);
+         if (EdgeToEdgeUtils.isEdgeToEdgeEverywhereEnabled()
+                 && edgeToEdgeSystemBarColorHelper != null) {
+             edgeToEdgeSystemBarColorHelper.setStatusBarColor(color, forceLightIconColor);
+--

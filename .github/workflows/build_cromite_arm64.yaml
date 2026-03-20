@@ -1,4 +1,4 @@
-name: Build Android arm64 Cromite
+name: Build Cromite Android arm64
 
 on:
   workflow_dispatch:
@@ -23,6 +23,13 @@ jobs:
           path: cromite
           fetch-depth: 1
 
+      - name: Copy all files
+        shell: bash
+        run: |
+          test -d shared || mkdir shared
+          cp -f cromite/*.patch shared
+          cp -f cromite/apply-cromite-patches.sh shared
+
       - name: Free Runner Space
         uses: justinthelaw/maximize-github-runner-space@main
         with:
@@ -45,7 +52,7 @@ jobs:
           image: uazo/cromite-build:${{ github.event.inputs.cver }}-${{ github.event.inputs.csha }}
           volumes: |
             ${{ github.workspace }}/arm64:/home/lg/working_dir/chromium/src/out/arm64
-            ${{ github.workspace }}/shared:/home/lg/shared
+            ${{ github.workspace }}/shared:/home/lg/working_dir/sharedspace
           env: |
             WORKSPACE=/home/lg/working_dir
             HOME=/home/lg/working_dir
@@ -54,11 +61,22 @@ jobs:
             KYTHE_OUTPUT_DIRECTORY=/home/lg/working_dir/chromium/src/out/arm64/kythe
             TARGET_ISDEBUG=false
             TARGET_OS=android
-            USE_KEYSTORE=true
-            KEYSTORE_PASSWORD=${{ secrets.KEYSTORE_PASSWORD }}
-            CROMITE_PREF_HASH_SEED_BIN=${{ secrets.CROMITE_PREF_HASH_SEED_BIN }}
+          #  USE_KEYSTORE=true
+          #  KEYSTORE_PASSWORD=${{ secrets.KEYSTORE_PASSWORD }}
+          #  CROMITE_PREF_HASH_SEED_BIN=${{ secrets.CROMITE_PREF_HASH_SEED_BIN }}
           workdir: /home/lg/working_dir
           command: |
+            ### Prepare Build
+            ###
+
+            # apply custom patch
+            cd $WORKSPACE
+            sudo chown lg sharedspace
+            cp -f sharedspace/*.patch cromite/build/patches
+            cp -f sharedspace/apply-cromite-patches.sh $WORKSPACE
+            chmod +x ./apply-cromite-patches.sh
+            ./apply-cromite-patches.sh
+
             # set workspace paths
             PATH=$WORKSPACE/chromium/src/third_party/llvm-build/Release+Asserts/bin:$WORKSPACE/depot_tools/:/usr/local/go/bin:$WORKSPACE/mtool/bin:$PATH
             cd $WORKSPACE
@@ -87,11 +105,11 @@ jobs:
             sudo chmod o-rxw /run/user/1000/
 
             # prepare keystore
-            echo "::group::-------- prepare keystore"
-            cd $WORKSPACE
-            echo "${{ secrets.KEYSTORE }}" > cromite.keystore.asc
-            gpg --homedir ./ -d --passphrase "${{ secrets.KEYSTORE_PASSPHRASE }}" --batch cromite.keystore.asc > cromite.keystore
-            echo "::endgroup::"
+            #echo "::group::-------- prepare keystore"
+            #cd $WORKSPACE
+            #echo "${{ secrets.KEYSTORE }}" > cromite.keystore.asc
+            #gpg --homedir ./ -d --passphrase "${{ secrets.KEYSTORE_PASSPHRASE }}" --batch cromite.keystore.asc > cromite.keystore
+            #echo "::endgroup::"
 
             # bootstrap python3 for gn
             echo ../../../../../usr/bin >$WORKSPACE/depot_tools/python3_bin_reldir.txt
@@ -99,7 +117,6 @@ jobs:
             ### Build Cromite Android arm64
             ###
 
-            PATH=$WORKSPACE/chromium/src/third_party/llvm-build/Release+Asserts/bin:$WORKSPACE/depot_tools/:/usr/local/go/bin:$WORKSPACE/mtool/bin:$PATH
             cd $WORKSPACE/chromium/src
 
             echo "::group::-------- gn gen"
@@ -123,7 +140,12 @@ jobs:
             $WORKSPACE/ninjatracing/ninjatracing -a $WORKSPACE/chromium/src/out/arm64/.ninja_log >$WORKSPACE/chromium/src/out/arm64/ninja_log_trace.json
             python3 $WORKSPACE/chromium/src/third_party/catapult/tracing/bin/trace2html $WORKSPACE/chromium/src/out/arm64/ninja_log_trace.json
 
-      - name: Find files
+      #- name: Find files
+      #  shell: bash
+      #  run: |
+      #    find arm64 -type f
+
+      - name: Find apk
         shell: bash
         run: |
-          find arm64 -type f
+          find arm64 -type f -iname "*.apk"

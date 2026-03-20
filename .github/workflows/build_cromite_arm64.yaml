@@ -39,7 +39,7 @@ jobs:
           sudo swapon /swapfile
           sudo swapon --show
 
-      - name: Prepare Build Container
+      - name: Build Cromite
         uses: vjik/docker-run@v1
         with:
           image: uazo/cromite-build:${{ github.event.inputs.cver }}-${{ github.event.inputs.csha }}
@@ -54,7 +54,7 @@ jobs:
             KYTHE_OUTPUT_DIRECTORY=/home/lg/working_dir/chromium/src/out/arm64/kythe
             TARGET_ISDEBUG=false
             TARGET_OS=android
-            USE_KEYSTORE: true
+            USE_KEYSTORE=true
             KEYSTORE_PASSWORD=${{ secrets.KEYSTORE_PASSWORD }}
             CROMITE_PREF_HASH_SEED_BIN=${{ secrets.CROMITE_PREF_HASH_SEED_BIN }}
           workdir: /home/lg/working_dir

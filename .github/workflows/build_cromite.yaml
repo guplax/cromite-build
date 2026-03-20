@@ -25,15 +25,15 @@ on:
       target_os:
         description: 'targetos [android/win/linux/all]'
         required: true
-        default: 'all'
+        default: 'android'
       build:
         description: 'android arch [arm/arm64/x64/all]'
         required: true
-        default: 'all'
+        default: 'arm64'
       type:
-        description: 'runner? [dev/ci]'
+        description: 'runner?'
         required: true
-        default: 'ci'
+        default: 'ubuntu-latest'
       debug:
         description: 'debug? [true/false]'
         required: true
@@ -58,6 +58,17 @@ jobs:
           path: cromite
           ref: ${{ github.event.inputs.sha }}
           fetch-depth: 1
+
+      - name: Free Runner Space
+        uses: justinthelaw/maximize-github-runner-space@latest
+        with:
+          cleanup-profile: max
+          skip-components: docker-engine
+
+      - name: Show space left
+        shell: bash
+        run: |
+          df -h
 
       - name: Enable proxy on container
         shell: bash

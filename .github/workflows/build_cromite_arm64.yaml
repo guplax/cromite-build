@@ -1,0 +1,129 @@
+name: Build Android arm64 Cromite
+
+on:
+  workflow_dispatch:
+    inputs:
+      cver:
+        description: 'uazo/cromite image VERSION'
+        required: true
+        default: '145.0.7632.120'
+      csha:
+        description: 'uazo/cromite image SHA'
+        required: true
+        default: 'd133d52d09c925b6542ff00e368d18d74df85e7c'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          path: cromite
+          fetch-depth: 1
+
+      - name: Free Runner Space
+        uses: justinthelaw/maximize-github-runner-space@main
+        with:
+          cleanup-profile: max
+          skip-components: docker-engine
+
+      - name: Increase swapfile
+        shell: bash
+        run: |
+          sudo swapoff -a
+          sudo dd if=/dev/zero of=/swapfile bs=1024 count=16M
+          sudo chmod 600 /swapfile
+          sudo mkswap /swapfile
+          sudo swapon /swapfile
+          sudo swapon --show
+
+      - name: Prepare Build Container
+        uses: vjik/docker-run@v1
+        with:
+          image: uazo/cromite-build:${{ github.event.inputs.cver }}-${{ github.event.inputs.csha }}
+          volumes: |
+            ${{ github.workspace }}/arm64:/home/lg/working_dir/chromium/src/out/arm64
+            ${{ github.workspace }}/shared:/home/lg/shared
+          env: |
+            WORKSPACE=/home/lg/working_dir
+            HOME=/home/lg/working_dir
+            KYTHE_CORPUS=chromium.googlesource.com/chromium/src
+            KYTHE_ROOT_DIRECTORY=/home/lg/working_dir/chromium/src
+            KYTHE_OUTPUT_DIRECTORY=/home/lg/working_dir/chromium/src/out/arm64/kythe
+            TARGET_ISDEBUG=false
+            TARGET_OS=android
+            USE_KEYSTORE: true
+            KEYSTORE_PASSWORD=${{ secrets.KEYSTORE_PASSWORD }}
+            CROMITE_PREF_HASH_SEED_BIN=${{ secrets.CROMITE_PREF_HASH_SEED_BIN }}
+          workdir: /home/lg/working_dir
+          command: |
+            # set workspace paths
+            PATH=$WORKSPACE/chromium/src/third_party/llvm-build/Release+Asserts/bin:$WORKSPACE/depot_tools/:/usr/local/go/bin:$WORKSPACE/mtool/bin:$PATH
+            cd $WORKSPACE
+
+            # reset proxy env
+            HTTP_PROXY=
+            HTTPS_PROXY=
+            http_proxy=
+            https_proxy=
+
+            # setup folder permissions
+            test -d chromium/src/out/arm64 || sudo mkdir -p chromium/src/out/arm64 && \
+              sudo chown lg chromium/src/out &&
+              sudo chown lg chromium/src/out/arm64
+
+            sudo chown lg /home/lg/working_dir
+            test -d /github/home/.config/depot_tools || sudo mkdir -p /github/home/.config/depot_tools
+            sudo chown lg /github/home/.config/depot_tools
+            
+            # make kythe output directory
+            test -d $KYTHE_OUTPUT_DIRECTORY || mkdir -p $KYTHE_OUTPUT_DIRECTORY
+
+            sudo mkdir -p /run/user/1000/
+            sudo chown lg /run/user/1000/
+            sudo chmod g-rxw /run/user/1000/
+            sudo chmod o-rxw /run/user/1000/
+
+            # prepare keystore
+            echo "::group::-------- prepare keystore"
+            cd $WORKSPACE
+            echo "${{ secrets.KEYSTORE }}" > cromite.keystore.asc
+            gpg --homedir ./ -d --passphrase "${{ secrets.KEYSTORE_PASSPHRASE }}" --batch cromite.keystore.asc > cromite.keystore
+            echo "::endgroup::"
+
+            # bootstrap python3 for gn
+            echo ../../../../../usr/bin >$WORKSPACE/depot_tools/python3_bin_reldir.txt
+
+            ### Build Cromite Android arm64
+            ###
+
+            PATH=$WORKSPACE/chromium/src/third_party/llvm-build/Release+Asserts/bin:$WORKSPACE/depot_tools/:/usr/local/go/bin:$WORKSPACE/mtool/bin:$PATH
+            cd $WORKSPACE/chromium/src
+
+            echo "::group::-------- gn gen"
+            gn gen --args="target_os = \"android\" $(cat /home/lg/working_dir/cromite/build/cromite.gn_args) target_cpu = \"arm64\" " out/arm64 || true
+            echo "::endgroup::"
+
+            echo "::group::-------- gn args"
+            gn args out/arm64/ --list --short || true
+            gn args out/arm64/ --list >out/arm64/gn_list || true
+            echo "::endgroup::"
+
+            vpython3 /home/lg/working_dir/depot_tools/siso.py ninja -C out/arm64 chrome_public_bundle --offline
+            vpython3 /home/lg/working_dir/depot_tools/siso.py ninja -C out/arm64 chrome_public_apk --offline
+
+            cp ../../cromite/build/RELEASE out/arm64
+
+            ### Get ninja logs Android arm64
+            ###
+
+            cd $WORKSPACE
+            $WORKSPACE/ninjatracing/ninjatracing -a $WORKSPACE/chromium/src/out/arm64/.ninja_log >$WORKSPACE/chromium/src/out/arm64/ninja_log_trace.json
+            python3 $WORKSPACE/chromium/src/third_party/catapult/tracing/bin/trace2html $WORKSPACE/chromium/src/out/arm64/ninja_log_trace.json
+
+      - name: Find files
+        shell: bash
+        run: |
+          find arm64 -type f

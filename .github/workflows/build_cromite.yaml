@@ -60,7 +60,7 @@ jobs:
           fetch-depth: 1
 
       - name: Free Runner Space
-        uses: justinthelaw/maximize-github-runner-space@latest
+        uses: justinthelaw/maximize-github-runner-space@main
         with:
           cleanup-profile: max
           skip-components: docker-engine

@@ -70,6 +70,16 @@ jobs:
         run: |
           df -h
 
+      - name: Increase swapfile
+        shell: bash
+        run: |
+          sudo swapoff -a
+          sudo dd if=/dev/zero of=/swapfile bs=1024 count=16M
+          sudo chmod 600 /swapfile
+          sudo mkswap /swapfile
+          sudo swapon /swapfile
+          sudo swapon --show
+
       - name: Enable proxy on container
         shell: bash
         run: |

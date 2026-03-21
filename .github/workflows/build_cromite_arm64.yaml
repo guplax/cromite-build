@@ -33,9 +33,9 @@ jobs:
           echo "::group::-------- free memory"
           free -h
           echo "::endgroup::"
-          echo -e "\n$(nproc --all)"
+          echo -e "\nCPU: $(nproc --all) cores"
           TWPROC="$(( $(nproc --all) * 2 ))"
-          echo $TWPROC
+          echo "$TWPROC jobs"
           echo "TWPROC=$TWPROC" >> "$GITHUB_OUTPUT"
 
       - name: Copy all files
@@ -146,8 +146,8 @@ jobs:
             gn args out/arm64/ --list >out/arm64/gn_list || true
             echo "::endgroup::"
 
-            vpython3 /home/lg/working_dir/depot_tools/siso.py ninja -j ${{ steps.rspecs.outputs.TWPROC }} -C out/arm64 chrome_public_bundle --offline 2>&1 | sed 's/^[^[]*\(\[[^]]*\]\).*/\1/'
-            vpython3 /home/lg/working_dir/depot_tools/siso.py ninja -j ${{ steps.rspecs.outputs.TWPROC }} -C out/arm64 chrome_public_apk --offline 2>&1 | sed 's/^[^[]*\(\[[^]]*\]\).*/\1/'
+            #vpython3 /home/lg/working_dir/depot_tools/siso.py ninja -local_jobs ${{ steps.rspecs.outputs.TWPROC }} -C out/arm64 chrome_public_bundle --offline 2>&1 | sed 's/^[^[]*\(\[[^]]*\]\).*/\1/'
+            vpython3 /home/lg/working_dir/depot_tools/siso.py ninja -local_jobs ${{ steps.rspecs.outputs.TWPROC }} -C out/arm64 chrome_public_apk --offline 2>&1 | sed 's/^[^[]*\(\[[^]]*\]\).*/\1/'
 
             cp ../../cromite/build/RELEASE out/arm64
 
@@ -161,17 +161,17 @@ jobs:
             ### Generate breakpad symbols for Android arm64
             ###
 
-            cd $WORKSPACE/chromium/src
+            #cd $WORKSPACE/chromium/src
 
-            echo "::group::-------- generating breakpad symbols"
-            vpython3 /home/lg/working_dir/depot_tools/siso.py ninja -j ${{ steps.rspecs.outputs.TWPROC }} -C out/arm64 minidump_stackwalk dump_syms --offline 2>&1 | sed 's/^[^[]*\(\[[^]]*\]\).*/\1/'
-            components/crash/content/tools/generate_breakpad_symbols.py --build-dir=out/arm64 \
-               --symbols-dir=out/arm64/symbols/ --binary=out/arm64/lib.unstripped/libchrome.so \
-               --platform=android --clear --verbose
-            cp out/arm64/lib.unstripped/libchrome.so out/arm64/symbols/libchrome.lib.so
-            cp out/arm64/minidump_stackwalk out/arm64/symbols
-            cp out/arm64/dump_syms out/arm64/symbols
-            echo "::endgroup::"
+            #echo "::group::-------- generating breakpad symbols"
+            #vpython3 /home/lg/working_dir/depot_tools/siso.py ninja -local_jobs ${{ steps.rspecs.outputs.TWPROC }} -C out/arm64 minidump_stackwalk dump_syms --offline 2>&1 | sed 's/^[^[]*\(\[[^]]*\]\).*/\1/'
+            #components/crash/content/tools/generate_breakpad_symbols.py --build-dir=out/arm64 \
+            #   --symbols-dir=out/arm64/symbols/ --binary=out/arm64/lib.unstripped/libchrome.so \
+            #   --platform=android --clear --verbose
+            #cp out/arm64/lib.unstripped/libchrome.so out/arm64/symbols/libchrome.lib.so
+            #cp out/arm64/minidump_stackwalk out/arm64/symbols
+            #cp out/arm64/dump_syms out/arm64/symbols
+            #echo "::endgroup::"
 
             ### Generate Supersize data for Android arm64
             ###
@@ -196,4 +196,5 @@ jobs:
           name: Cromite-${{ github.event.inputs.cver }}
           path: |
             arm64/apks/ChromePublic.apk
+            arm64/ninja_log_trace.html
           if-no-files-found: error

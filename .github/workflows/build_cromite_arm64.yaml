@@ -140,6 +140,28 @@ jobs:
             $WORKSPACE/ninjatracing/ninjatracing -a $WORKSPACE/chromium/src/out/arm64/.ninja_log >$WORKSPACE/chromium/src/out/arm64/ninja_log_trace.json
             python3 $WORKSPACE/chromium/src/third_party/catapult/tracing/bin/trace2html $WORKSPACE/chromium/src/out/arm64/ninja_log_trace.json
 
+            ### Generate breakpad symbols for Android arm64
+            ###
+
+            cd $WORKSPACE/chromium/src
+
+            echo "::group::-------- generating breakpad symbols"
+            vpython3 /home/lg/working_dir/depot_tools/siso.py ninja -C out/arm64 minidump_stackwalk dump_syms --offline
+            components/crash/content/tools/generate_breakpad_symbols.py --build-dir=out/arm64 \
+               --symbols-dir=out/arm64/symbols/ --binary=out/arm64/lib.unstripped/libchrome.so \
+               --platform=android --clear --verbose
+            cp out/arm64/lib.unstripped/libchrome.so out/arm64/symbols/libchrome.lib.so
+            cp out/arm64/minidump_stackwalk out/arm64/symbols
+            cp out/arm64/dump_syms out/arm64/symbols
+            echo "::endgroup::"
+
+            ### Generate Supersize data for Android arm64
+            ###
+
+            cd $WORKSPACE/chromium/src
+
+            vpython3 tools/binary_size/libsupersize/main.py archive out/arm64/chrome.size --apk-file out/arm64/apks/ChromePublic.apk -v
+
       #- name: Find files
       #  shell: bash
       #  run: |
@@ -149,3 +171,11 @@ jobs:
         shell: bash
         run: |
           find arm64 -type f -iname "*.apk"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Cromite-${{ github.event.inputs.cver }}
+          path: |
+            arm64/apks/ChromePublic.apk
+          if-no-files-found: error

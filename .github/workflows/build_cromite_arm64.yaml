@@ -72,8 +72,8 @@ jobs:
             # apply custom patch
             cd $WORKSPACE
 
-            test -d sharedspace || sudo mkdir sharedspace && \
-              sudo chown lg sharedspace
+            test -d sharedspace || sudo mkdir sharedspace
+            sudo chown lg sharedspace
 
             cp -f sharedspace/*.patch cromite/build/patches
             cp -f sharedspace/apply-cromite-patches.sh $WORKSPACE

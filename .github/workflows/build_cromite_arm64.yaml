@@ -23,6 +23,21 @@ jobs:
           path: cromite
           fetch-depth: 1
 
+      - name: Show specs
+        id: rspecs
+        shell: bash
+        run: |
+          echo "::group::-------- cpu info"
+          cat /proc/cpuinfo
+          echo "::endgroup::"
+          echo "::group::-------- free memory"
+          free -h
+          echo "::endgroup::"
+          echo -e "\n$(nproc --all)"
+          TWPROC="$(( $(nproc --all) * 2 ))"
+          echo $TWPROC
+          echo "TWPROC=$TWPROC" >> "$GITHUB_OUTPUT"
+
       - name: Copy all files
         shell: bash
         run: |
@@ -131,8 +146,8 @@ jobs:
             gn args out/arm64/ --list >out/arm64/gn_list || true
             echo "::endgroup::"
 
-            vpython3 /home/lg/working_dir/depot_tools/siso.py ninja -C out/arm64 chrome_public_bundle --offline
-            vpython3 /home/lg/working_dir/depot_tools/siso.py ninja -C out/arm64 chrome_public_apk --offline
+            vpython3 /home/lg/working_dir/depot_tools/siso.py ninja -j ${{ steps.rspecs.outputs.TWPROC }} -C out/arm64 chrome_public_bundle --offline 2>&1 | sed 's/^[^[]*\(\[[^]]*\]\).*/\1/'
+            vpython3 /home/lg/working_dir/depot_tools/siso.py ninja -j ${{ steps.rspecs.outputs.TWPROC }} -C out/arm64 chrome_public_apk --offline 2>&1 | sed 's/^[^[]*\(\[[^]]*\]\).*/\1/'
 
             cp ../../cromite/build/RELEASE out/arm64
 
@@ -149,7 +164,7 @@ jobs:
             cd $WORKSPACE/chromium/src
 
             echo "::group::-------- generating breakpad symbols"
-            vpython3 /home/lg/working_dir/depot_tools/siso.py ninja -C out/arm64 minidump_stackwalk dump_syms --offline
+            vpython3 /home/lg/working_dir/depot_tools/siso.py ninja -j ${{ steps.rspecs.outputs.TWPROC }} -C out/arm64 minidump_stackwalk dump_syms --offline 2>&1 | sed 's/^[^[]*\(\[[^]]*\]\).*/\1/'
             components/crash/content/tools/generate_breakpad_symbols.py --build-dir=out/arm64 \
                --symbols-dir=out/arm64/symbols/ --binary=out/arm64/lib.unstripped/libchrome.so \
                --platform=android --clear --verbose

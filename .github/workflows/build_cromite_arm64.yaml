@@ -94,6 +94,9 @@ jobs:
             ### Prepare Build
             ###
 
+            # remove proxy configuration
+            sudo rm -f /etc/apt/apt.conf.d/proxy.conf
+
             # ccache
             cd $WORKSPACE
             test -d ccache || sudo mkdir ccache

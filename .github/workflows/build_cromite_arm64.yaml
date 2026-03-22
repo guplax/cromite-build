@@ -38,6 +38,14 @@ jobs:
           echo "$TWPROC jobs"
           echo "TWPROC=$TWPROC" >> "$GITHUB_OUTPUT"
 
+      - name: Cache ccache directory
+        uses: actions/cache@v4
+        with:
+          path: ccache
+          key: ccache-${{ runner.os }}-${{ github.sha }}
+          restore-keys: |
+            ccache-${{ runner.os }}-
+
       - name: Copy all files
         shell: bash
         run: |
@@ -66,10 +74,12 @@ jobs:
         with:
           image: uazo/cromite-build:${{ github.event.inputs.cver }}-${{ github.event.inputs.csha }}
           volumes: |
+            ${{ github.workspace }}/ccache:/home/lg/working_dir/ccache
             ${{ github.workspace }}/arm64:/home/lg/working_dir/chromium/src/out/arm64
             ${{ github.workspace }}/shared:/home/lg/working_dir/sharedspace
           env: |
             WORKSPACE=/home/lg/working_dir
+            CCACHE_DIR=/home/lg/working_dir/ccache
             HOME=/home/lg/working_dir
             KYTHE_CORPUS=chromium.googlesource.com/chromium/src
             KYTHE_ROOT_DIRECTORY=/home/lg/working_dir/chromium/src
@@ -83,6 +93,14 @@ jobs:
           command: |
             ### Prepare Build
             ###
+
+            # ccache
+            cd $WORKSPACE
+            test -d ccache || sudo mkdir ccache
+            sudo chown -R lg ccache
+            sudo apt update && \
+              sudo apt install -y ccache
+            ccache -M 10G
 
             # apply custom patch
             cd $WORKSPACE
@@ -138,7 +156,7 @@ jobs:
             cd $WORKSPACE/chromium/src
 
             echo "::group::-------- gn gen"
-            gn gen --args="target_os = \"android\" $(cat /home/lg/working_dir/cromite/build/cromite.gn_args) target_cpu = \"arm64\" " out/arm64 || true
+            gn gen --args="target_os = \"android\" $(cat /home/lg/working_dir/cromite/build/cromite.gn_args) target_cpu = \"arm64\" cc_wrapper = \"ccache\" " out/arm64 || true
             echo "::endgroup::"
 
             echo "::group::-------- gn args"
